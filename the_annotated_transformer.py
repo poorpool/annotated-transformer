@@ -7,13 +7,14 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.13.0
+#       jupytext_version: 1.16.4
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
-# %% [markdown] id="SX7UC-8jTsp7" tags=[]
+
+# %% [markdown] id="SX7UC-8jTsp7"
 #
 # <center><h1>The Annotated Transformer</h1> </center>
 #
@@ -118,7 +119,7 @@ import time
 from torch.optim.lr_scheduler import LambdaLR
 import pandas as pd
 import altair as alt
-from torchtext.data.functional import to_map_style_dataset
+from torchtext.data import to_map_style_dataset
 from torch.utils.data import DataLoader
 from torchtext.vocab import build_vocab_from_iterator
 import torchtext.datasets as datasets
@@ -138,7 +139,7 @@ RUN_EXAMPLES = True
 
 # %%
 # Some convenience helper functions used throughout the notebook
-
+alt.renderers.enable('mimetype') # 解决 Altair 渲染问题
 
 def is_interactive_notebook():
     return __name__ == "__main__"
@@ -271,8 +272,8 @@ class Generator(nn.Module):
 # encoder and decoder, shown in the left and right halves of Figure 1,
 # respectively.
 
-# %% [markdown] id="oredWloYTsqC"
-# ![](images/ModalNet-21.png)
+# %% id="oredWloYTsqC"
+![](images/ModalNet-21.png)
 
 
 # %% [markdown] id="bh092NZBTsqD"
@@ -1015,7 +1016,7 @@ def run_epoch(
 # Each training batch contained a set of sentence pairs containing
 # approximately 25000 source tokens and 25000 target tokens.
 
-# %% [markdown] id="F1mTQatiTsqJ" jp-MarkdownHeadingCollapsed=true tags=[]
+# %% [markdown] id="F1mTQatiTsqJ" jp-MarkdownHeadingCollapsed=true
 # ## Hardware and Schedule
 #
 # We trained our models on one machine with 8 NVIDIA P100 GPUs.  For
@@ -1067,7 +1068,7 @@ def rate(step, model_size, factor, warmup):
     )
 
 
-# %% id="l1bnrlnSV8J5" tags=[]
+# %% id="l1bnrlnSV8J5"
 def example_learning_schedule():
     opts = [
         [512, 1, 4000],  # example 1
@@ -1119,7 +1120,7 @@ def example_learning_schedule():
         alt.Chart(opts_data)
         .mark_line()
         .properties(width=600)
-        .encode(x="step", y="Learning Rate", color="model_size:warmup:N")
+        .encode(x="step", y="Learning Rate", color="model_size\:warmup:N")
         .interactive()
     )
 
@@ -1307,7 +1308,7 @@ class SimpleLossCompute:
 # %% [markdown] id="eDAI7ELUTsqL"
 # ## Greedy Decoding
 
-# %% [markdown] id="LFkWakplTsqL" tags=[]
+# %% [markdown] id="LFkWakplTsqL"
 # > This code predicts a translation using greedy decoding for simplicity.
 # %% id="N2UOpnT3bIyU"
 def greedy_decode(model, src, src_mask, max_len, start_symbol):
@@ -1326,7 +1327,7 @@ def greedy_decode(model, src, src_mask, max_len, start_symbol):
     return ys
 
 
-# %% id="qgIZ2yEtdYwe" tags=[]
+# %% id="qgIZ2yEtdYwe"
 # Train the simple copy task.
 
 
@@ -1385,7 +1386,7 @@ def example_simple_model():
 # > system. We also show how to use multi-gpu processing to make it
 # > really fast.
 
-# %% [markdown] id="8y9dpfolTsqL" tags=[]
+# %% [markdown] id="8y9dpfolTsqL"
 # ## Data Loading
 #
 # > We will load the dataset using torchtext and spacy for
@@ -1413,7 +1414,7 @@ def load_tokenizers():
     return spacy_de, spacy_en
 
 
-# %% id="t4BszXXJTsqL" tags=[]
+# %% id="t4BszXXJTsqL"
 def tokenize(text, tokenizer):
     return [tok.text for tok in tokenizer.tokenizer(text)]
 
@@ -1423,8 +1424,12 @@ def yield_tokens(data_iter, tokenizer, index):
         yield tokenizer(from_to_tuple[index])
 
 
-# %% id="jU3kVlV5okC-" tags=[]
-
+# %% id="jU3kVlV5okC-"
+def my_multi30k_filter_fn(split, language_pair, i, x):
+    return f"/{datasets.multi30k._PREFIX[split]}.{language_pair[i]}" in x[0]
+datasets.multi30k._filter_fn = my_multi30k_filter_fn
+# https://github.com/pytorch/text/issues/2221 to fix invalid unicode error
+# 原来的包会错误使用 ._test.de 这个 APPLE 自动保存的烂东西
 
 def build_vocabulary(spacy_de, spacy_en):
     def tokenize_de(text):
@@ -1481,10 +1486,10 @@ if is_interactive_notebook():
 # > code patches their default batching to make sure we search over
 # > enough sentences to find tight batches.
 
-# %% [markdown] id="kDEj-hCgokC-" tags=[] jp-MarkdownHeadingCollapsed=true
+# %% [markdown] id="kDEj-hCgokC-" jp-MarkdownHeadingCollapsed=true
 # ## Iterators
 
-# %% id="wGsIHFgOokC_" tags=[]
+# %% id="wGsIHFgOokC_"
 def collate_batch(
     batch,
     src_pipeline,
@@ -1547,7 +1552,7 @@ def collate_batch(
     return (src, tgt)
 
 
-# %% id="ka2Ce_WIokC_" tags=[]
+# %% id="ka2Ce_WIokC_"
 def create_dataloaders(
     device,
     vocab_src,
@@ -1709,7 +1714,7 @@ def train_worker(
         torch.save(module.state_dict(), file_path)
 
 
-# %% tags=[]
+# %%
 def train_distributed_model(vocab_src, vocab_tgt, spacy_de, spacy_en, config):
     from the_annotated_transformer import train_worker
 
@@ -1739,7 +1744,7 @@ def train_model(vocab_src, vocab_tgt, spacy_de, spacy_en, config):
 def load_trained_model():
     config = {
         "batch_size": 32,
-        "distributed": False,
+        "distributed": True, # poorpool modify from false to True
         "num_epochs": 8,
         "accum_iter": 10,
         "base_lr": 1.0,
@@ -1798,7 +1803,7 @@ if is_interactive_notebook():
 # > generator. See the [(cite)](https://arxiv.org/abs/1608.05859) for
 # > details. To add this to the model simply do this:
 
-# %% id="tb3j3CYLTsqN" tags=[]
+# %% id="tb3j3CYLTsqN"
 if False:
     model.src_embed[0].lut.weight = model.tgt_embeddings[0].lut.weight
     model.generator.lut.weight = model.tgt_embed[0].lut.weight
@@ -1985,7 +1990,7 @@ def attn_map(attn, layer, head, row_tokens, col_tokens, max_dim=30):
     )
 
 
-# %% tags=[]
+# %%
 def get_encoder(model, layer):
     return model.encoder.layers[layer].self_attn.attn
 
@@ -2030,7 +2035,7 @@ def visualize_layer(model, layer, getter_fn, ntokens, row_tokens, col_tokens):
 # %% [markdown]
 # ## Encoder Self Attention
 
-# %% tags=[]
+# %%
 def viz_encoder_self():
     model, example_data = run_model_example(n_examples=1)
     example = example_data[
@@ -2059,7 +2064,7 @@ show_example(viz_encoder_self)
 # %% [markdown]
 # ## Decoder Self Attention
 
-# %% tags=[]
+# %%
 def viz_decoder_self():
     model, example_data = run_model_example(n_examples=1)
     example = example_data[len(example_data) - 1]
@@ -2091,7 +2096,7 @@ show_example(viz_decoder_self)
 # %% [markdown]
 # ## Decoder Src Attention
 
-# %% tags=[]
+# %%
 def viz_decoder_src():
     model, example_data = run_model_example(n_examples=1)
     example = example_data[len(example_data) - 1]
